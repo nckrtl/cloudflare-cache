@@ -57,23 +57,20 @@ Create a Cloudflare API token with **Zone → Cache Purge** limited to the site 
 
 Cloudflare will **not** cache responses that set cookies. Do **not** put this middleware only on the default `web` stack.
 
-### With Waymaker (recommended)
-
-Keep a single Waymaker-generated routes file. Opt pages into a cookie-free stack with a **middleware group**:
+Declare cacheable pages in their own route file, for example `routes/static.php`, and load it in a cookie-free `static` middleware group outside the `web` group:
 
 ```php
 // bootstrap/app.php
+use Illuminate\Support\Facades\Route;
 use NckRtl\CloudflareCache\Support\StaticMiddleware;
-use NckRtl\Waymaker\Facades\Waymaker;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php', // optional non-Waymaker web routes
+        web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
         then: function () {
-            // Load Waymaker outside the forced `web` wrapper so `static` is top-level
-            Waymaker::routes();
+            Route::middleware('static')->group(base_path('routes/static.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
@@ -86,27 +83,15 @@ return Application::configure(basePath: dirname(__DIR__))
 ```
 
 ```php
-// app/Http/Controllers/ProjectsController.php
-use NckRtl\Waymaker\Get;
+// routes/static.php
+use App\Http\Controllers\ProjectController;
+use Illuminate\Support\Facades\Route;
 
-class ProjectsController extends Controller
-{
-    public static string $middlewareGroup = 'static';
-
-    #[Get(uri: '/', name: 'projects')]
-    public function index(): Response { ... }
-}
+Route::get('/', [ProjectController::class, 'index'])->name('projects.index');
+Route::get('/pricing', [ProjectController::class, 'pricing'])->name('pricing');
 ```
 
-Per-route override (same controller can mix groups):
-
-```php
-#[Get(uri: '/pricing', name: 'pricing', middlewareGroup: 'static')]
-public function pricing(): Response { ... }
-
-#[Get(uri: '/account', name: 'account', middlewareGroup: 'web', middleware: 'auth')]
-public function account(): Response { ... }
-```
+Routes that need a session, such as an account page behind `auth`, stay in `routes/web.php`.
 
 `StaticMiddleware::defaults()` is:
 
@@ -115,18 +100,9 @@ public function account(): Response { ... }
 3. `CacheResponse` (this package)
 4. Your `$after` stack
 
-Requires **Waymaker** with `middlewareGroup` support (see Waymaker changelog / docs).
-
-### Without Waymaker
-
-Alias is also registered for classic routes:
+To cache a single route without the `static` group, use the middleware alias:
 
 ```php
-Route::middleware('static')->group(function () {
-    Route::get('/privacy', ...)->name('privacy');
-});
-
-// or
 Route::get('/pricing', ...)->middleware('cloudflare.cache:86400');
 ```
 

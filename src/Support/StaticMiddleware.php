@@ -10,8 +10,8 @@ use NckRtl\CloudflareCache\Http\Middleware\CacheResponse;
 /**
  * Helpers for building a cookie-free middleware stack for edge-cacheable pages.
  *
- * Intended to be registered as Laravel's `static` middleware group and referenced
- * from Waymaker via `public static string $middlewareGroup = 'static'`.
+ * Intended to be registered as Laravel's `static` middleware group and applied to
+ * the route file that holds cacheable pages.
  */
 final class StaticMiddleware
 {
